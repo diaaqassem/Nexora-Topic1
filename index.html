@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virtualization &amp; Linux Administration — Diaa Qassem</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --red:#DC2626;--gold:#F59E0B;--teal:#14B8A6;--blue:#3B82F6;
+  --green:#10B981;--purple:#8B5CF6;--orange:#F97316;
+  --dark:#0A0A0F;--dark2:#111827;--dark3:#1F2937;--dark4:#374151;
+  --white:#FFFFFF;--gray:#9CA3AF;
+}
+html,body{width:100%;height:100%;background:#0A0A0F;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}
+
+.slides{width:100%;height:100vh;position:relative}
+.slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .6s ease,transform .6s ease;
+  transform:translateX(60px);padding:40px;overflow:hidden;
+}
+.slide.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.slide.exit{opacity:0;transform:translateX(-60px)}
+
+.nav{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:16px;
+  background:rgba(17,24,39,.9);backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.1);border-radius:50px;
+  padding:10px 22px;z-index:1000;
+}
+.nav button{
+  background:none;border:none;color:var(--gray);cursor:pointer;
+  font-size:22px;padding:2px 8px;border-radius:8px;transition:.2s;
+}
+.nav button:hover{color:var(--white);background:rgba(255,255,255,.1)}
+.dots{display:flex;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dark4);cursor:pointer;transition:.3s}
+.dot.active{background:var(--gold);width:24px;border-radius:4px}
+.slide-num{color:var(--gray);font-size:13px;min-width:44px;text-align:center}
+
+.progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--red));transition:width .4s ease;z-index:200}
+
+.tag{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+.big{font-size:clamp(42px,7vw,80px);font-weight:900;color:var(--white);line-height:1;letter-spacing:-2px}
+.big span{color:var(--gold)}
+.sub{font-size:clamp(14px,2vw,18px);color:var(--gray);margin-top:16px;max-width:600px;text-align:center;line-height:1.6}
+.section-title{font-size:clamp(28px,4vw,44px);font-weight:900;color:var(--white);letter-spacing:-1px;text-align:center}
+.section-title span{color:var(--gold)}
+
+.slide{background:var(--dark)}
+.bg-grid{
+  background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:60px 60px;
+}
+.bg-noise::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 20% 50%,rgba(220,38,38,.12) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 50%,rgba(245,158,11,.08) 0%,transparent 60%);
+  pointer-events:none;
+}
+
+.grid{display:grid;gap:16px;width:100%;max-width:900px;margin-top:32px}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.card{
+  background:var(--dark3);border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;padding:20px;transition:transform .3s,border-color .3s;
+}
+.card:hover{transform:translateY(-4px)}
+.card-icon{font-size:26px;margin-bottom:12px;color:var(--gold)}
+.card-title{font-size:14px;font-weight:700;color:var(--white);margin-bottom:6px}
+.card-desc{font-size:12px;color:var(--gray);line-height:1.5}
+.card.red{border-color:rgba(220,38,38,.4);background:rgba(220,38,38,.08)}
+.card.teal{border-color:rgba(20,184,166,.4);background:rgba(20,184,166,.08)}
+.card.blue{border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.08)}
+.card.gold{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
+.card.green{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.08)}
+.card.purple{border-color:rgba(139,92,246,.4);background:rgba(139,92,246,.08)}
+
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes float-slow{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes spin-slow{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes slide-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scale-in{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes head-bob{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-4px) rotate(3deg)}}
+@keyframes arm-wave{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(20deg)}}
+@keyframes blink-eye{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.05)}}
+@keyframes wheel-turn{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 20px rgba(245,158,11,.3)}50%{box-shadow:0 0 40px rgba(245,158,11,.6)}}
+@keyframes pop{0%{transform:scale(0)}60%{transform:scale(1.1)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-5deg)}75%{transform:rotate(5deg)}}
+@keyframes slide-in-right{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes cursor-blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+@keyframes type-glow{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes alert-flash{0%,100%{opacity:1;color:#EF4444}50%{opacity:.3;color:#F97316}}
+
+.slide.active .anim-1{animation:slide-up .5s ease both;animation-delay:.1s}
+.slide.active .anim-2{animation:slide-up .5s ease both;animation-delay:.2s}
+.slide.active .anim-3{animation:slide-up .5s ease both;animation-delay:.3s}
+.slide.active .anim-4{animation:slide-up .5s ease both;animation-delay:.4s}
+.slide.active .anim-5{animation:slide-up .5s ease both;animation-delay:.5s}
+.slide.active .anim-6{animation:slide-up .5s ease both;animation-delay:.6s}
+
+.char{position:absolute;pointer-events:none}
+.char-svg{overflow:visible}
+.e-blink{animation:blink-eye 4s ease-in-out infinite}
+.a-wave{transform-origin:10px 5px;animation:arm-wave 2s ease-in-out infinite}
+.c-float{animation:float 3s ease-in-out infinite}
+.c-float2{animation:float 3.2s ease-in-out infinite .4s}
+.c-float3{animation:float 2.8s ease-in-out infinite .8s}
+.c-bounce{animation:bounce 2s ease-in-out infinite}
+.c-bounce2{animation:bounce 2.2s ease-in-out infinite .3s}
+.c-bounce3{animation:bounce 1.8s ease-in-out infinite .6s}
+.c-shake{animation:shake 3s ease-in-out infinite}
+
+/* ── Terminal command cards (new, used across Linux slides) ── */
+.term-card{background:#0B1220;border:1px solid rgba(16,185,129,.25);border-radius:14px;padding:16px;transition:transform .3s,border-color .3s}
+.term-card:hover{transform:translateY(-4px);border-color:rgba(16,185,129,.5)}
+.term-dots{display:flex;gap:5px;margin-bottom:10px}
+.term-dot{width:8px;height:8px;border-radius:50%}
+.term-cmd{font-family:'Courier New',monospace;color:#6EE7B7;font-size:13px;font-weight:700;word-break:break-all}
+.term-cmd .flag{color:#93C5FD}
+.term-cmd .arg{color:#FCD34D}
+.term-desc{color:var(--gray);font-size:11px;margin-top:8px;line-height:1.5}
+
+/* ── VM stack boxes (new, used in hypervisor/architecture slides) ── */
+.vm-compare{display:flex;gap:18px;width:100%;max-width:880px;margin-top:22px;align-items:flex-start}
+.vm-col{flex:1;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.vm-header{padding:12px;text-align:center;font-size:12px;font-weight:700;letter-spacing:1px}
+.vm-layer{padding:9px 14px;text-align:center;font-size:11px;font-weight:600;border-top:1px solid rgba(255,255,255,.05)}
+.vs-badge{
+  width:48px;height:48px;border-radius:50%;background:var(--gold);
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:var(--dark);
+  align-self:center;flex-shrink:0;
+}
+
+/* ── Reused architecture-style diagram (host/VM) ── */
+.arch-diagram{width:100%;max-width:780px;margin-top:20px}
+.host-node{
+  background:rgba(139,92,246,.15);border:2px solid rgba(139,92,246,.4);
+  border-radius:14px;padding:14px 22px;text-align:center;margin-bottom:10px;
+  animation:glow-pulse 3s ease-in-out infinite;
+}
+.vm-row{display:flex;gap:10px}
+.vm-box{flex:1;background:var(--dark3);border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,.08);text-align:center}
+.res-row{display:flex;gap:5px;justify-content:center;margin-top:7px;flex-wrap:wrap}
+.res-chip{
+  background:rgba(20,184,166,.2);border:1px solid rgba(20,184,166,.3);
+  border-radius:8px;padding:3px 9px;font-size:10px;color:var(--teal);font-weight:600;
+  animation:bounce 2s ease-in-out infinite;
+}
+.arch-feats{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center}
+.feat{background:var(--dark3);border-radius:100px;padding:5px 13px;font-size:11px;color:var(--white);font-weight:600;border:1px solid rgba(255,255,255,.1)}
+
+/* ── Before/after compare (reused pattern for virtualization intro) ── */
+.compare-2{display:flex;gap:18px;width:100%;max-width:780px;margin-top:22px}
+.compare-col{flex:1;border-radius:16px;padding:18px;border:1px solid rgba(255,255,255,.08)}
+.compare-col.bad{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.3)}
+.compare-col.good{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.3)}
+.compare-header{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.compare-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;color:var(--gray);border-bottom:1px solid rgba(255,255,255,.04)}
+.compare-item:last-child{border-bottom:none}
+
+.pills-row{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center}
+.pill{padding:7px 16px;border-radius:100px;font-size:12px;font-weight:600;background:var(--dark3);border:1px solid rgba(255,255,255,.1);color:var(--white)}
+
+/* ── Phase / step grid (reused for lifecycle-style flows) ── */
+.step-wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:100%;max-width:880px;margin-top:24px}
+.step{
+  background:var(--dark3);border-radius:12px;padding:14px;
+  text-align:center;border:1px solid rgba(255,255,255,.08);
+  position:relative;overflow:visible;
+}
+.step::after{
+  content:'';position:absolute;right:-10px;top:50%;transform:translateY(-50%);
+  border:5px solid transparent;border-left-color:var(--gold);z-index:10;
+}
+.step:nth-child(4)::after{display:none}
+.step-icon{font-size:22px;color:var(--gold);margin-bottom:8px}
+.step-name{font-size:11px;font-weight:700;color:var(--white);letter-spacing:1px}
+.step-sub{font-size:10px;color:var(--gray);margin-top:3px}
+
+/* ── final slide ── */
+.wall-text{font-size:clamp(20px,3.5vw,34px);font-weight:900;color:var(--white);text-align:center;letter-spacing:-.5px;max-width:700px;line-height:1.2}
+.wall-text em{color:var(--gold);font-style:normal}
+.recap{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:26px;max-width:820px}
+.recap-item{background:var(--dark3);border-radius:100px;padding:7px 16px;font-size:12px;font-weight:600;color:var(--white);border:1px solid rgba(255,255,255,.1)}
+.trophy-char{font-size:50px;color:var(--gold);animation:bounce 2s ease-in-out infinite;margin-bottom:14px}
+
+.bubble{
+  position:absolute;
+  background:rgba(15,15,25,.92);border:1.5px solid rgba(138,43,226,.5);
+  border-radius:14px;padding:9px 13px;font-size:11px;font-weight:600;
+  color:rgba(255,255,255,.9);line-height:1.4;max-width:160px;text-align:center;
+  animation:pop .4s cubic-bezier(.34,1.56,.64,1) both;
+  z-index:90;
+}
+.bubble::after{
+  content:'';position:absolute;bottom:-11px;left:50%;transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:rgba(138,43,226,.5);
+}
+.bubble.gold-b{border-color:rgba(245,166,35,.5)}
+.bubble.gold-b::after{border-top-color:rgba(245,166,35,.5)}
+
+/* ── Instructor slide ── */
+#s0{
+  background:#000;
+  background-image:
+    radial-gradient(ellipse at 10% 50%, rgba(138,43,226,.18) 0,transparent 55%),
+    radial-gradient(ellipse at 90% 50%, rgba(245,166,35,.10) 0,transparent 50%);
+}
+#s0 .grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:60px 60px;z-index:0}
+#s0 .page-title{
+  font-size:clamp(22px,3vw,34px);font-weight:900;letter-spacing:-1px;
+  background:linear-gradient(90deg,#8B2BE2,#B061FF);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  position:absolute;top:36px;left:10%;
+}
+#s0 .instructor-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:0;width:100%;max-width:1100px;align-items:center}
+#s0 .qr-side{display:flex;flex-direction:column;align-items:center;gap:20px}
+#s0 .qr-box{width:200px;height:200px;background:#fff;border-radius:20px;padding:10px;display:flex;align-items:center;justify-content:center;animation:qr-glow 3s ease-in-out infinite}
+@keyframes qr-glow{0%,100%{box-shadow:0 0 40px rgba(138,43,226,.4),0 0 80px rgba(138,43,226,.1)}50%{box-shadow:0 0 60px rgba(138,43,226,.6),0 0 120px rgba(138,43,226,.2)}}
+#s0 .qr-box img{position:relative;top:0;max-width:100%;max-height:100%}
+#s0 .scan-label{font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.3);text-transform:uppercase;font-weight:700}
+#s0 .info-side{padding-left:48px;border-left:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;gap:4px}
+#s0 .instr-label{font-size:11px;letter-spacing:5px;text-transform:uppercase;color:rgba(255,255,255,.3);font-weight:700}
+#s0 .instr-name{
+  font-size:clamp(38px,5vw,60px);font-weight:900;letter-spacing:-1.5px;line-height:1;
+  background:linear-gradient(135deg,#fff 40%,rgba(138,43,226,.9));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:pop .7s cubic-bezier(.34,1.56,.64,1) .2s both;
+}
+#s0 .role-row{display:flex;align-items:center;gap:10px;margin:12px 0 20px}
+#s0 .role-title{font-size:15px;font-weight:700;color:#F5A623}
+#s0 .role-div{color:rgba(255,255,255,.2);font-size:18px}
+#s0 .company{font-size:15px;font-weight:700;background:linear-gradient(90deg,#F5A623,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+#s0 .divider{width:100%;height:1px;background:linear-gradient(90deg,rgba(138,43,226,.6),transparent);margin-bottom:20px}
+#s0 .skills-list{display:flex;flex-direction:column;gap:12px}
+#s0 .sk-item{display:flex;align-items:center;gap:14px;opacity:0;transform:translateX(30px);animation:slide-in-right .5s ease forwards}
+#s0 .sk-item:nth-child(1){animation-delay:.3s}
+#s0 .sk-item:nth-child(2){animation-delay:.5s}
+#s0 .sk-item:nth-child(3){animation-delay:.7s}
+#s0 .sk-item:nth-child(4){animation-delay:.9s}
+#s0 .sk-item:nth-child(5){animation-delay:1.1s}
+#s0 .sk-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+#s0 .sk-text{font-size:13px;color:rgba(255,255,255,.82);font-weight:500}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="slides" id="slides">
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 0 — INSTRUCTOR
+══════════════════════════════════════════════════════ -->
+<div class="slide active" id="s0">
+  <div class="grid-bg"></div>
+  <div class="page-title" style="z-index:20">Meet Your Instructor</div>
+
+  <div class="instructor-grid" style="position:relative;z-index:10">
+    <div class="qr-side">
+      <div class="qr-box"><img src="./diaaqr.png" alt="QR Code" class="qr-image"></div>
+      <div class="scan-label"><i class="fa-solid fa-camera" style="margin-right:6px"></i>Scan to connect</div>
+    </div>
+    <div class="info-side">
+      <div class="instr-label">Instructor</div>
+      <div class="instr-name">Diaa Qassem</div>
+      <div class="role-row">
+        <div class="role-title">Cloud Operations Engineer</div>
+        <div class="role-div">·</div>
+        <div class="company"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="skills-list">
+        <div class="sk-item">
+          <div class="sk-icon" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3)"><i class="fa-solid fa-server" style="color:#60A5FA"></i></div>
+          <div class="sk-text">Manages virtualized cloud infrastructure at scale</div>
+        </div>
+        <div class="sk-item">
+          <div class="sk-icon" style="background:rgba(20,184,166,.15);border:1px solid rgba(20,184,166,.3)"><i class="fa-brands fa-linux" style="color:#2DD4BF"></i></div>
+          <div class="sk-text">Hands-on Linux system administration</div>
+        </div>
+        <div class="sk-item">
+          <div class="sk-icon" style="background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3)"><i class="fa-solid fa-cubes-stacked" style="color:#FCD34D"></i></div>
+          <div class="sk-text">VMware Cloud Director &amp; virtualization platforms</div>
+        </div>
+        <div class="sk-item">
+          <div class="sk-icon" style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3)"><i class="fa-solid fa-terminal" style="color:#C4B5FD"></i></div>
+          <div class="sk-text">Automates operations from the command line</div>
+        </div>
+        <div class="sk-item">
+          <div class="sk-icon" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3)"><i class="fa-solid fa-graduation-cap" style="color:#F87171"></i></div>
+          <div class="sk-text">Passionate about teaching infrastructure fundamentals</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="char c-float" style="left:12px;bottom:0;z-index:50">
+    <svg class="char-svg" width="110" height="180" viewBox="0 0 110 180">
+      <ellipse cx="55" cy="174" rx="32" ry="6" fill="rgba(138,43,226,.25)"/>
+      <rect x="30" y="128" width="18" height="44" rx="9" fill="#1E3A5F"/>
+      <rect x="62" y="128" width="18" height="44" rx="9" fill="#1E3A5F"/>
+      <ellipse cx="39" cy="172" rx="15" ry="6" fill="#0F172A"/>
+      <ellipse cx="71" cy="172" rx="15" ry="6" fill="#0F172A"/>
+      <rect x="22" y="72" width="66" height="66" rx="14" fill="#1D4ED8"/>
+      <rect x="38" y="82" width="34" height="16" rx="5" fill="rgba(255,255,255,.12)"/>
+      <rect x="6" y="76" width="18" height="50" rx="9" fill="#1D4ED8"/>
+      <g class="a-wave" style="transform-origin:88px 78px">
+        <rect x="84" y="76" width="18" height="50" rx="9" fill="#1D4ED8"/>
+        <circle cx="93" cy="128" r="9" fill="#FBBF87"/>
+        <rect x="98" y="121" width="10" height="6" rx="3" fill="#FBBF87"/>
+      </g>
+      <rect x="46" y="60" width="18" height="16" rx="5" fill="#FBBF87"/>
+      <ellipse cx="55" cy="44" rx="32" ry="34" fill="#FBBF87"/>
+      <ellipse cx="55" cy="17" rx="34" ry="22" fill="#1E1B18"/>
+      <rect x="21" y="17" width="68" height="16" fill="#1E1B18"/>
+      <rect x="26" y="37" width="22" height="14" rx="5" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2"/>
+      <rect x="62" y="37" width="22" height="14" rx="5" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2"/>
+      <line x1="48" y1="44" x2="62" y2="44" stroke="rgba(255,255,255,.7)" stroke-width="2"/>
+      <ellipse class="e-blink" cx="37" cy="44" rx="5" ry="5" fill="#1E293B"/>
+      <ellipse class="e-blink" cx="73" cy="44" rx="5" ry="5" fill="#1E293B"/>
+      <circle cx="38.5" cy="42.5" r="1.5" fill="white"/>
+      <circle cx="74.5" cy="42.5" r="1.5" fill="white"/>
+      <path d="M 44 57 Q 55 65 66 57" stroke="#7C3E1B" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <rect x="10" y="120" width="42" height="28" rx="4" fill="#0F172A"/>
+      <rect x="12" y="122" width="38" height="22" rx="3" fill="#1E293B" stroke="rgba(79,142,247,.5)" stroke-width="1"/>
+      <rect x="15" y="126" width="16" height="2" rx="1" fill="rgba(79,142,247,.7)"/>
+      <rect x="15" y="131" width="28" height="2" rx="1" fill="rgba(62,224,122,.6)"/>
+      <rect x="15" y="136" width="20" height="2" rx="1" fill="rgba(232,64,64,.5)"/>
+      <rect x="8" y="148" width="46" height="3" rx="1.5" fill="#334155"/>
+    </svg>
+  </div>
+  <div class="bubble" style="left:110px;bottom:188px;animation-delay:.2s">Hi! I'm Qassem<br><i class="fa-solid fa-hand-wave"></i></div>
+
+  <div class="char c-float2" style="right:12px;bottom:0;z-index:50">
+    <svg class="char-svg" width="110" height="180" viewBox="0 0 110 180" style="transform:scaleX(-1)">
+      <ellipse cx="55" cy="174" rx="32" ry="6" fill="rgba(245,166,35,.25)"/>
+      <rect x="30" y="128" width="18" height="44" rx="9" fill="#374151"/>
+      <rect x="62" y="128" width="18" height="44" rx="9" fill="#374151"/>
+      <ellipse cx="39" cy="172" rx="15" ry="6" fill="#0F172A"/>
+      <ellipse cx="71" cy="172" rx="15" ry="6" fill="#0F172A"/>
+      <rect x="22" y="72" width="66" height="66" rx="14" fill="#065F46"/>
+      <text x="55" y="118" text-anchor="middle" font-size="22" opacity=".5" fill="#fff">⚙</text>
+      <rect x="6" y="76" width="18" height="50" rx="9" fill="#065F46"/>
+      <g class="a-wave" style="transform-origin:88px 78px">
+        <rect x="84" y="76" width="18" height="46" rx="9" fill="#065F46"/>
+        <circle cx="93" cy="124" r="9" fill="#FBBF87"/>
+        <rect x="98" y="117" width="10" height="6" rx="3" fill="#FBBF87"/>
+      </g>
+      <rect x="46" y="60" width="18" height="16" rx="5" fill="#FBBF87"/>
+      <ellipse cx="55" cy="44" rx="32" ry="34" fill="#FBBF87"/>
+      <ellipse cx="55" cy="18" rx="36" ry="24" fill="#D97706"/>
+      <rect x="19" y="24" width="72" height="14" rx="3" fill="#B45309"/>
+      <ellipse class="e-blink" cx="40" cy="46" rx="5" ry="5" fill="#1E293B"/>
+      <ellipse class="e-blink" cx="70" cy="46" rx="5" ry="5" fill="#1E293B"/>
+      <circle cx="41.5" cy="44.5" r="1.5" fill="white"/>
+      <circle cx="71.5" cy="44.5" r="1.5" fill="white"/>
+      <path d="M 41 58 Q 55 53 69 58" stroke="#4A2800" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <rect x="10" y="118" width="34" height="44" rx="4" fill="#0F172A" stroke="rgba(0,229,204,.4)" stroke-width="1.2"/>
+      <rect x="12" y="121" width="30" height="36" rx="2" fill="#111827"/>
+      <rect x="15" y="125" width="18" height="2" rx="1" fill="rgba(0,229,204,.6)"/>
+      <rect x="15" y="130" width="24" height="2" rx="1" fill="rgba(245,158,11,.5)"/>
+      <circle cx="18" cy="140" r="3" fill="rgba(0,229,204,.5)"/>
+      <rect x="15" y="147" width="22" height="2" rx="1" fill="rgba(168,85,247,.5)"/>
+    </svg>
+  </div>
+  <div class="bubble gold-b" style="right:110px;bottom:188px;animation-delay:.5s">Real-world Linux &amp;<br>Virtualization Experience!</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 1 — COVER
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-noise" id="s1">
+  <i class="fa-solid fa-server" style="position:absolute;right:-40px;top:50%;transform:translateY(-50%);font-size:420px;color:rgba(255,255,255,.04);animation:spin-slow 60s linear infinite"></i>
+  <i class="fa-brands fa-linux" style="position:absolute;right:150px;top:26%;font-size:170px;color:rgba(255,255,255,.07);animation:float-slow 6s ease-in-out infinite"></i>
+
+  <div style="position:relative;z-index:2;align-self:flex-start;max-width:640px">
+    <div class="tag anim-1"><i class="fa-solid fa-layer-group" style="margin-right:6px"></i>Infrastructure Fundamentals</div>
+    <div class="accent-bar anim-1" style="width:80px;height:5px;background:var(--gold);border-radius:3px;margin-bottom:20px"></div>
+    <div class="big anim-2">Virtual<span>ization</span> &amp;<br>Linux Admin</div>
+    <div class="sub anim-3" style="text-align:left">From bare metal to virtual machines, then straight to the command line</div>
+    <div class="stats anim-4" style="display:flex;gap:40px;margin-top:40px">
+      <div class="stat"><div class="stat-num" style="font-size:38px;font-weight:900;color:var(--gold)">2</div><div class="stat-label" style="font-size:11px;color:var(--gray);letter-spacing:1px">Core Modules</div></div>
+      <div class="stat"><div class="stat-num" style="font-size:38px;font-weight:900;color:var(--gold)">100%</div><div class="stat-label" style="font-size:11px;color:var(--gray);letter-spacing:1px">Hands-On CLI</div></div>
+    </div>
+  </div>
+
+  <div class="char c-float" style="right:60px;bottom:0;z-index:50">
+    <svg width="120" height="200" viewBox="0 0 120 200">
+      <ellipse cx="60" cy="194" rx="36" ry="7" fill="rgba(245,158,11,.25)"/>
+      <rect x="34" y="142" width="20" height="50" rx="10" fill="#1E3A5F"/>
+      <rect x="66" y="142" width="20" height="50" rx="10" fill="#1E3A5F"/>
+      <ellipse cx="44" cy="192" rx="17" ry="7" fill="#0F172A"/>
+      <ellipse cx="76" cy="192" rx="17" ry="7" fill="#0F172A"/>
+      <rect x="24" y="80" width="72" height="72" rx="14" fill="#DC2626"/>
+      <text x="60" y="128" text-anchor="middle" font-size="20" fill="rgba(255,255,255,.3)">#</text>
+      <rect x="6" y="58" width="18" height="50" rx="9" fill="#DC2626" transform="rotate(-30 6 58)"/>
+      <rect x="96" y="58" width="18" height="50" rx="9" fill="#DC2626" transform="rotate(30 96 58)"/>
+      <rect x="50" y="66" width="20" height="18" rx="6" fill="#FBBF87"/>
+      <ellipse cx="60" cy="50" rx="34" ry="36" fill="#FBBF87"/>
+      <ellipse cx="60" cy="20" rx="36" ry="24" fill="#3B1A08"/>
+      <rect x="24" y="20" width="72" height="14" fill="#3B1A08"/>
+      <ellipse class="e-blink" cx="46" cy="47" rx="7" ry="7" fill="#1E293B"/>
+      <ellipse class="e-blink" cx="74" cy="47" rx="7" ry="7" fill="#1E293B"/>
+      <circle cx="48" cy="45" r="2.5" fill="white"/>
+      <circle cx="76" cy="45" r="2.5" fill="white"/>
+      <path d="M 44 62 Q 60 76 76 62" stroke="#7C3E1B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <div class="char c-bounce" style="left:40px;bottom:10px;z-index:50">
+    <svg width="90" height="130" viewBox="0 0 90 130">
+      <rect x="10" y="10" width="70" height="110" rx="8" fill="#1F2937" stroke="rgba(20,184,166,.4)" stroke-width="1.5"/>
+      <rect x="18" y="22" width="54" height="24" rx="4" fill="#111827" stroke="rgba(139,92,246,.4)" stroke-width="1"/>
+      <rect x="18" y="50" width="54" height="24" rx="4" fill="#111827" stroke="rgba(59,130,246,.4)" stroke-width="1"/>
+      <rect x="18" y="78" width="54" height="24" rx="4" fill="#111827" stroke="rgba(20,184,166,.4)" stroke-width="1"/>
+      <text x="45" y="38" text-anchor="middle" font-size="9" fill="rgba(139,92,246,.8)">VM 1</text>
+      <text x="45" y="66" text-anchor="middle" font-size="9" fill="rgba(59,130,246,.8)">VM 2</text>
+      <text x="45" y="94" text-anchor="middle" font-size="9" fill="rgba(20,184,166,.8)">VM 3</text>
+      <circle cx="66" cy="30" r="3" fill="#10B981" style="animation:pulse 1.5s ease-in-out infinite"/>
+      <circle cx="66" cy="58" r="3" fill="#F59E0B" style="animation:pulse 1.8s ease-in-out infinite .3s"/>
+      <circle cx="66" cy="86" r="3" fill="#3B82F6" style="animation:pulse 1.6s ease-in-out infinite .6s"/>
+      <rect x="18" y="108" width="54" height="6" rx="3" fill="#374151"/>
+    </svg>
+  </div>
+
+  <div class="char c-float3" style="right:200px;bottom:20px;z-index:50">
+    <svg width="70" height="90" viewBox="0 0 70 90">
+      <rect x="10" y="26" width="50" height="40" rx="8" fill="#374151" stroke="rgba(59,130,246,.5)" stroke-width="1.5"/>
+      <rect x="16" y="32" width="38" height="22" rx="5" fill="#1E293B"/>
+      <text x="35" y="48" text-anchor="middle" font-family="Courier New,monospace" font-size="14" fill="#6EE7B7" style="animation:type-glow 1.5s ease-in-out infinite">$_</text>
+      <rect x="31" y="14" width="8" height="14" rx="3" fill="#374151"/>
+      <circle cx="35" cy="10" r="6" fill="#DC2626" style="animation:pulse 1s ease-in-out infinite"/>
+      <rect x="0" y="32" width="12" height="6" rx="3" fill="#374151"/>
+      <rect x="58" y="32" width="12" height="6" rx="3" fill="#374151"/>
+      <rect x="18" y="64" width="12" height="22" rx="5" fill="#374151"/>
+      <rect x="40" y="64" width="12" height="22" rx="5" fill="#374151"/>
+      <ellipse cx="24" cy="86" rx="10" ry="4" fill="#1F2937"/>
+      <ellipse cx="46" cy="86" rx="10" ry="4" fill="#1F2937"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 2 — PROBLEM BEFORE VIRTUALIZATION
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s2">
+  <div class="tag anim-1"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>The world before virtualization</div>
+  <div class="section-title anim-2">One App. One Box. <span>Wasted Money.</span></div>
+
+  <div class="grid grid-2 anim-3" style="max-width:660px;margin-top:20px">
+    <div class="card red">
+      <div class="card-icon" style="color:#F87171"><i class="fa-solid fa-battery-quarter"></i></div>
+      <div class="card-title">IDLE HARDWARE</div>
+      <div class="card-desc">A dedicated server running one app often used only 10–15% of its real capacity.</div>
+    </div>
+    <div class="card red">
+      <div class="card-icon" style="color:#F87171"><i class="fa-solid fa-money-bill-trend-up"></i></div>
+      <div class="card-title">EXPENSIVE</div>
+      <div class="card-desc">New project? Buy a whole new physical server, rack, cables, and power.</div>
+    </div>
+    <div class="card red">
+      <div class="card-icon" style="color:#F87171"><i class="fa-solid fa-clock c-shake"></i></div>
+      <div class="card-title">SLOW PROVISIONING</div>
+      <div class="card-desc">Weeks to procure, rack, wire, and install a single new machine.</div>
+    </div>
+    <div class="card red">
+      <div class="card-icon" style="color:#F87171"><i class="fa-solid fa-warehouse"></i></div>
+      <div class="card-title">DATACENTER SPRAWL</div>
+      <div class="card-desc">Rows of half-used servers eating floor space, power, and cooling.</div>
+    </div>
+  </div>
+
+  <div class="quote-box anim-4" style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:12px;padding:14px 20px;margin-top:20px;color:var(--gray);font-style:italic;font-size:13px;max-width:580px;text-align:center">"Why buy 10 physical servers for 10 apps, when one powerful machine can safely run all 10?"</div>
+
+  <div class="char c-bounce" style="right:40px;top:50%;transform:translateY(-50%);z-index:50">
+    <svg width="130" height="150" viewBox="0 0 130 150">
+      <rect x="10" y="10" width="35" height="130" rx="4" fill="#1F2937" stroke="rgba(220,38,38,.3)" stroke-width="1"/>
+      <rect x="16" y="18" width="23" height="14" rx="2" fill="#111827"/>
+      <rect x="16" y="36" width="23" height="14" rx="2" fill="#111827"/>
+      <rect x="16" y="54" width="23" height="14" rx="2" fill="#111827"/>
+      <circle cx="34" cy="24" r="2" fill="rgba(107,114,128,.5)"/>
+      <circle cx="34" cy="42" r="2" fill="rgba(107,114,128,.5)"/>
+      <circle cx="34" cy="60" r="2" fill="rgba(107,114,128,.5)"/>
+      <text x="27" y="90" font-size="9" fill="rgba(220,38,38,.5)" transform="rotate(90 27 90)">IDLE</text>
+
+      <rect x="50" y="10" width="35" height="130" rx="4" fill="#1F2937" stroke="rgba(220,38,38,.3)" stroke-width="1"/>
+      <rect x="56" y="18" width="23" height="14" rx="2" fill="#111827"/>
+      <circle cx="74" cy="24" r="2" fill="rgba(107,114,128,.5)"/>
+      <text x="67" y="90" font-size="9" fill="rgba(220,38,38,.5)" transform="rotate(90 67 90)">IDLE</text>
+
+      <rect x="90" y="10" width="35" height="130" rx="4" fill="#1F2937" stroke="rgba(16,185,129,.4)" stroke-width="1"/>
+      <rect x="96" y="18" width="23" height="14" rx="2" fill="#111827"/>
+      <circle cx="114" cy="24" r="2" fill="#10B981" style="animation:pulse 1s ease-in-out infinite"/>
+      <text x="107" y="90" font-size="9" fill="rgba(16,185,129,.6)" transform="rotate(90 107 90)">BUSY</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 3 — WHAT IS VIRTUALIZATION
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s3">
+  <div class="tag anim-1"><i class="fa-solid fa-lightbulb" style="margin-right:6px"></i>The solution</div>
+  <div class="section-title anim-2">What is <span>Virtualization?</span></div>
+  <div class="sub anim-2" style="margin-top:10px">Creating a software-based (virtual) version of hardware — servers, storage, or networks — so many isolated systems can run on one physical machine.</div>
+
+  <div class="compare-2 anim-3">
+    <div class="compare-col bad">
+      <div class="compare-header"><i class="fa-solid fa-server" style="color:#F87171"></i><span style="color:#F87171">One Physical Server</span></div>
+      <div class="compare-item"><i class="fa-solid fa-xmark" style="color:#F87171;margin-right:6px"></i>Runs exactly one OS</div>
+      <div class="compare-item"><i class="fa-solid fa-xmark" style="color:#F87171;margin-right:6px"></i>Fixed CPU / RAM allocation</div>
+      <div class="compare-item"><i class="fa-solid fa-xmark" style="color:#F87171;margin-right:6px"></i>Hardware tied to one workload</div>
+      <div class="compare-item"><i class="fa-solid fa-xmark" style="color:#F87171;margin-right:6px"></i>Scaling means buying new boxes</div>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="compare-col good">
+      <div class="compare-header"><i class="fa-solid fa-cubes-stacked" style="color:#6EE7B7"></i><span style="color:#6EE7B7">One Virtualized Server</span></div>
+      <div class="compare-item"><i class="fa-solid fa-check" style="color:#6EE7B7;margin-right:6px"></i>Runs many isolated OS instances</div>
+      <div class="compare-item"><i class="fa-solid fa-check" style="color:#6EE7B7;margin-right:6px"></i>Resources shared &amp; adjustable</div>
+      <div class="compare-item"><i class="fa-solid fa-check" style="color:#6EE7B7;margin-right:6px"></i>Same hardware, many workloads</div>
+      <div class="compare-item"><i class="fa-solid fa-check" style="color:#6EE7B7;margin-right:6px"></i>Scale by spinning up new VMs</div>
+    </div>
+  </div>
+
+  <div class="pills-row anim-4">
+    <div class="pill" style="background:rgba(220,38,38,.2);color:#F87171;border-color:rgba(220,38,38,.3)"><i class="fa-solid fa-lock" style="margin-right:5px"></i>Isolation</div>
+    <div class="pill" style="background:rgba(245,158,11,.2);color:#FCD34D;border-color:rgba(245,158,11,.3)"><i class="fa-solid fa-layer-group" style="margin-right:5px"></i>Abstraction</div>
+    <div class="pill" style="background:rgba(20,184,166,.2);color:#5EEAD4;border-color:rgba(20,184,166,.3)"><i class="fa-solid fa-object-group" style="margin-right:5px"></i>Consolidation</div>
+    <div class="pill" style="background:rgba(59,130,246,.2);color:#93C5FD;border-color:rgba(59,130,246,.3)"><i class="fa-solid fa-arrows-left-right-to-line" style="margin-right:5px"></i>Flexibility</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 4 — TYPES OF VIRTUALIZATION
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s4">
+  <div class="tag anim-1"><i class="fa-solid fa-shapes" style="margin-right:6px"></i>Not just servers</div>
+  <div class="section-title anim-2">Types of <span>Virtualization</span></div>
+
+  <div class="grid grid-4 anim-3" style="max-width:920px;margin-top:24px">
+    <div class="card blue">
+      <div class="card-icon" style="color:#60A5FA"><i class="fa-solid fa-server"></i></div>
+      <div class="card-title">SERVER / COMPUTE</div>
+      <div class="card-desc">One physical server hosts multiple virtual machines, each with its own OS.</div>
+    </div>
+    <div class="card teal">
+      <div class="card-icon" style="color:#2DD4BF"><i class="fa-solid fa-hard-drive"></i></div>
+      <div class="card-title">STORAGE</div>
+      <div class="card-desc">Multiple physical disks pooled and presented as one flexible virtual volume.</div>
+    </div>
+    <div class="card purple">
+      <div class="card-icon" style="color:#C4B5FD"><i class="fa-solid fa-network-wired"></i></div>
+      <div class="card-title">NETWORK</div>
+      <div class="card-desc">Physical network gear abstracted into virtual switches, routers, and VLANs.</div>
+    </div>
+    <div class="card gold">
+      <div class="card-icon" style="color:#FCD34D"><i class="fa-solid fa-desktop"></i></div>
+      <div class="card-title">DESKTOP / APP</div>
+      <div class="card-desc">Full desktops or single apps delivered remotely from a central host (VDI).</div>
+    </div>
+  </div>
+
+  <div class="sub anim-4" style="margin-top:24px"><i class="fa-solid fa-circle-info" style="color:var(--gold);margin-right:6px"></i>This course focuses on <b style="color:var(--white)">Server / Compute Virtualization</b> — the foundation of every cloud.</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 5 — HYPERVISORS
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s5">
+  <div class="tag anim-1"><i class="fa-solid fa-microchip" style="margin-right:6px"></i>The engine of virtualization</div>
+  <div class="section-title anim-2">Meet the <span>Hypervisor</span></div>
+  <div class="sub anim-2" style="margin-top:10px">The software layer that creates and manages virtual machines, sharing CPU, RAM, storage and network among them.</div>
+
+  <div class="vm-compare anim-3">
+    <div class="vm-col">
+      <div class="vm-header" style="background:rgba(139,92,246,.2);color:#C4B5FD"><i class="fa-solid fa-1" style="margin-right:5px"></i>Type 1 — Bare Metal</div>
+      <div class="vm-layer" style="background:rgba(59,130,246,.15);color:#93C5FD">VM · VM · VM</div>
+      <div class="vm-layer" style="background:rgba(139,92,246,.15);color:#C4B5FD">Hypervisor (runs directly)</div>
+      <div class="vm-layer" style="background:rgba(100,100,100,.15);color:var(--gray)">Physical Hardware</div>
+      <div style="padding:10px;text-align:center;font-size:11px;color:#C4B5FD"><i class="fa-solid fa-bolt" style="margin-right:4px"></i>Fast · Production-grade</div>
+      <div style="padding:0 12px 12px;text-align:center;font-size:10px;color:var(--gray)">VMware ESXi · Microsoft Hyper-V · KVM · Xen</div>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="vm-col" style="border-color:rgba(20,184,166,.3)">
+      <div class="vm-header" style="background:rgba(20,184,166,.2);color:#5EEAD4"><i class="fa-solid fa-2" style="margin-right:5px"></i>Type 2 — Hosted</div>
+      <div class="vm-layer" style="background:rgba(59,130,246,.12);color:#93C5FD">VM · VM</div>
+      <div class="vm-layer" style="background:rgba(20,184,166,.12);color:#5EEAD4">Hypervisor (an app)</div>
+      <div class="vm-layer" style="background:rgba(139,92,246,.12);color:#C4B5FD">Host Operating System</div>
+      <div class="vm-layer" style="background:rgba(100,100,100,.15);color:var(--gray)">Physical Hardware</div>
+      <div style="padding:10px;text-align:center;font-size:11px;color:#5EEAD4"><i class="fa-solid fa-laptop" style="margin-right:4px"></i>Simple · Great for testing</div>
+      <div style="padding:0 12px 12px;text-align:center;font-size:10px;color:var(--gray)">VMware Workstation · VirtualBox · Parallels</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 6 — VM ARCHITECTURE
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s6">
+  <div class="tag anim-1"><i class="fa-solid fa-diagram-project" style="margin-right:6px"></i>Anatomy of a VM</div>
+  <div class="section-title anim-2">Inside a <span>Virtual Machine</span></div>
+
+  <div class="arch-diagram anim-3">
+    <div class="host-node">
+      <div style="font-size:13px;font-weight:700;color:#C4B5FD;letter-spacing:1px"><i class="fa-solid fa-server" style="margin-right:7px"></i>PHYSICAL HOST + HYPERVISOR</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px">CPU Cores · RAM · Disks · NICs, shared by the hypervisor</div>
+    </div>
+    <div style="text-align:center;color:var(--gray);font-size:18px;margin:6px 0">
+      <i class="fa-solid fa-arrow-down"></i>&nbsp;<i class="fa-solid fa-arrow-down"></i>&nbsp;<i class="fa-solid fa-arrow-down"></i>
+    </div>
+    <div class="vm-row">
+      <div class="vm-box">
+        <div style="font-size:11px;font-weight:700;color:var(--teal)"><i class="fa-solid fa-desktop" style="margin-right:4px"></i>VM 1 — Web Server</div>
+        <div class="res-row">
+          <div class="res-chip">vCPU</div>
+          <div class="res-chip" style="animation-delay:.3s">vRAM</div>
+        </div>
+      </div>
+      <div class="vm-box">
+        <div style="font-size:11px;font-weight:700;color:var(--blue)"><i class="fa-solid fa-desktop" style="margin-right:4px"></i>VM 2 — Database</div>
+        <div class="res-row">
+          <div class="res-chip" style="border-color:rgba(59,130,246,.3);color:#93C5FD;background:rgba(59,130,246,.15)">vDisk</div>
+          <div class="res-chip" style="border-color:rgba(59,130,246,.3);color:#93C5FD;background:rgba(59,130,246,.15);animation-delay:.3s">vRAM</div>
+        </div>
+      </div>
+      <div class="vm-box">
+        <div style="font-size:11px;font-weight:700;color:var(--green)"><i class="fa-solid fa-desktop" style="margin-right:4px"></i>VM 3 — App Server</div>
+        <div class="res-row">
+          <div class="res-chip" style="border-color:rgba(16,185,129,.3);color:#6EE7B7;background:rgba(16,185,129,.15)">vNIC</div>
+          <div class="res-chip" style="border-color:rgba(16,185,129,.3);color:#6EE7B7;background:rgba(16,185,129,.15);animation-delay:.3s">vCPU</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-feats anim-4">
+    <div class="feat"><i class="fa-solid fa-camera" style="margin-right:5px;color:var(--teal)"></i>Snapshots</div>
+    <div class="feat"><i class="fa-solid fa-clone" style="margin-right:5px;color:var(--gold)"></i>Cloning</div>
+    <div class="feat"><i class="fa-solid fa-truck-fast" style="margin-right:5px;color:var(--green)"></i>Live Migration</div>
+    <div class="feat"><i class="fa-solid fa-file-shield" style="margin-right:5px;color:var(--red)"></i>Templates</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 7 — BENEFITS
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s7">
+  <div class="tag anim-1"><i class="fa-solid fa-circle-check" style="margin-right:6px"></i>Why it matters</div>
+  <div class="section-title anim-2">Benefits &amp; <span>Use Cases</span></div>
+
+  <div class="grid grid-3 anim-3" style="max-width:900px;margin-top:20px">
+    <div class="card gold">
+      <div class="card-icon" style="color:#FCD34D"><i class="fa-solid fa-sack-dollar"></i></div>
+      <div class="card-title">COST SAVINGS</div>
+      <div class="card-desc">Run more workloads per server — less hardware, power, and cooling.</div>
+    </div>
+    <div class="card blue">
+      <div class="card-icon" style="color:#60A5FA"><i class="fa-solid fa-bolt"></i></div>
+      <div class="card-title">FAST PROVISIONING</div>
+      <div class="card-desc">Spin up a new VM in minutes instead of ordering new hardware.</div>
+    </div>
+    <div class="card red">
+      <div class="card-icon" style="color:#F87171"><i class="fa-solid fa-shield-halved"></i></div>
+      <div class="card-title">DISASTER RECOVERY</div>
+      <div class="card-desc">Snapshots &amp; backups let you restore a whole server in minutes.</div>
+    </div>
+    <div class="card teal">
+      <div class="card-icon" style="color:#2DD4BF"><i class="fa-solid fa-vial-circle-check"></i></div>
+      <div class="card-title">TEST &amp; DEV SANDBOXES</div>
+      <div class="card-desc">Break things safely in an isolated VM without touching production.</div>
+    </div>
+    <div class="card purple">
+      <div class="card-icon" style="color:#C4B5FD"><i class="fa-solid fa-lock"></i></div>
+      <div class="card-title">ISOLATION &amp; SECURITY</div>
+      <div class="card-desc">A compromised or crashed VM doesn't take its neighbors down with it.</div>
+    </div>
+    <div class="card green">
+      <div class="card-icon" style="color:#6EE7B7"><i class="fa-solid fa-cloud"></i></div>
+      <div class="card-title">FOUNDATION OF THE CLOUD</div>
+      <div class="card-desc">AWS, Azure, and every public cloud is built on massive-scale virtualization.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 8 — TRANSITION TO LINUX
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-noise" id="s8">
+  <i class="fa-brands fa-linux" style="position:absolute;right:-40px;top:50%;transform:translateY(-50%);font-size:420px;color:rgba(255,255,255,.04);animation:float-slow 8s ease-in-out infinite"></i>
+
+  <div class="tag anim-1"><i class="fa-solid fa-arrow-right-arrow-left" style="margin-right:6px"></i>From virtual machines to...</div>
+  <div class="section-title anim-2">Now Log In &amp; <span>Take Control</span></div>
+  <div class="sub anim-3" style="margin-top:14px;max-width:640px">Every virtual machine needs an operating system inside it. In the datacenter and the cloud, that OS is almost always <b style="color:var(--white)">Linux</b> — and it's managed entirely from the command line.</div>
+
+  <div class="pills-row anim-4">
+    <div class="pill" style="background:rgba(20,184,166,.2);color:#5EEAD4;border-color:rgba(20,184,166,.3)"><i class="fa-solid fa-terminal" style="margin-right:5px"></i>The Shell</div>
+    <div class="pill" style="background:rgba(59,130,246,.2);color:#93C5FD;border-color:rgba(59,130,246,.3)"><i class="fa-solid fa-folder-tree" style="margin-right:5px"></i>Filesystem</div>
+    <div class="pill" style="background:rgba(245,158,11,.2);color:#FCD34D;border-color:rgba(245,158,11,.3)"><i class="fa-solid fa-user-shield" style="margin-right:5px"></i>Users &amp; Permissions</div>
+    <div class="pill" style="background:rgba(220,38,38,.2);color:#F87171;border-color:rgba(220,38,38,.3)"><i class="fa-solid fa-gears" style="margin-right:5px"></i>Processes &amp; Services</div>
+  </div>
+
+  <div class="char c-float" style="right:60px;bottom:0;z-index:50">
+    <svg width="110" height="170" viewBox="0 0 110 170">
+      <ellipse cx="55" cy="164" rx="32" ry="6" fill="rgba(20,184,166,.25)"/>
+      <rect x="30" y="118" width="18" height="44" rx="9" fill="#374151"/>
+      <rect x="62" y="118" width="18" height="44" rx="9" fill="#374151"/>
+      <rect x="22" y="62" width="66" height="60" rx="12" fill="#065F46"/>
+      <text x="55" y="100" text-anchor="middle" font-family="Courier New,monospace" font-size="16" fill="rgba(255,255,255,.5)">$</text>
+      <rect x="6" y="66" width="18" height="46" rx="9" fill="#065F46"/>
+      <g class="a-wave" style="transform-origin:88px 68px"><rect x="84" y="66" width="18" height="46" rx="9" fill="#065F46"/></g>
+      <rect x="46" y="50" width="18" height="16" rx="5" fill="#FBBF87"/>
+      <ellipse cx="55" cy="34" rx="30" ry="32" fill="#FBBF87"/>
+      <ellipse cx="55" cy="8" rx="32" ry="20" fill="#1E1B18"/>
+      <rect x="23" y="8" width="64" height="14" fill="#1E1B18"/>
+      <ellipse class="e-blink" cx="42" cy="34" rx="5" ry="5" fill="#1E293B"/>
+      <ellipse class="e-blink" cx="68" cy="34" rx="5" ry="5" fill="#1E293B"/>
+      <circle cx="43.5" cy="32.5" r="1.5" fill="white"/>
+      <circle cx="69.5" cy="32.5" r="1.5" fill="white"/>
+      <path d="M 44 47 Q 55 55 66 47" stroke="#7C3E1B" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 9 — LINUX ADMIN I: NAVIGATION & FILES
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s9">
+  <div class="tag anim-1"><i class="fa-solid fa-terminal" style="margin-right:6px"></i>Linux Admin I</div>
+  <div class="section-title anim-2">Navigation &amp; <span>File Management</span></div>
+
+  <div class="grid grid-4 anim-3" style="max-width:940px;margin-top:20px">
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">pwd</div>
+      <div class="term-desc">Print the current working directory</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">ls <span class="flag">-la</span></div>
+      <div class="term-desc">List all files, including hidden ones, in detail</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">cd <span class="arg">/var/log</span></div>
+      <div class="term-desc">Change into a directory</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">mkdir <span class="arg">project</span></div>
+      <div class="term-desc">Create a new directory</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">cp <span class="arg">a.txt b.txt</span></div>
+      <div class="term-desc">Copy a file or directory</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">mv <span class="arg">a.txt /tmp</span></div>
+      <div class="term-desc">Move or rename a file</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">rm <span class="flag">-rf</span> <span class="arg">dir/</span></div>
+      <div class="term-desc">Remove files or directories — use with care</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">cat / less <span class="arg">file</span></div>
+      <div class="term-desc">View a file's contents in full or page-by-page</div>
+    </div>
+  </div>
+
+  <div class="pills-row anim-4">
+    <div class="pill"><i class="fa-solid fa-magnifying-glass" style="margin-right:5px;color:var(--teal)"></i>find / grep</div>
+    <div class="pill"><i class="fa-solid fa-link" style="margin-right:5px;color:var(--gold)"></i>ln -s symlinks</div>
+    <div class="pill"><i class="fa-solid fa-file-lines" style="margin-right:5px;color:var(--blue)"></i>touch / nano / vim</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 10 — LINUX ADMIN I: PERMISSIONS, USERS, PACKAGES
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s10">
+  <div class="tag anim-1"><i class="fa-solid fa-user-lock" style="margin-right:6px"></i>Linux Admin I (continued)</div>
+  <div class="section-title anim-2">Users, Permissions &amp; <span>Packages</span></div>
+
+  <div class="grid grid-3 anim-3" style="max-width:900px;margin-top:20px">
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">chmod <span class="flag">755</span> <span class="arg">script.sh</span></div>
+      <div class="term-desc">Set read / write / execute permissions</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">chown <span class="arg">user:group file</span></div>
+      <div class="term-desc">Change file owner and group</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">sudo <span class="arg">command</span></div>
+      <div class="term-desc">Run a command with administrator privileges</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">useradd <span class="flag">-m</span> <span class="arg">diaa</span></div>
+      <div class="term-desc">Create a new user account</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">passwd <span class="arg">diaa</span></div>
+      <div class="term-desc">Set or change a user's password</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">apt / yum <span class="flag">install</span> <span class="arg">nginx</span></div>
+      <div class="term-desc">Install software packages on Debian or RHEL systems</div>
+    </div>
+  </div>
+
+  <div class="pills-row anim-4">
+    <div class="pill"><i class="fa-solid fa-users-gear" style="margin-right:5px;color:var(--purple)"></i>groups / usermod</div>
+    <div class="pill"><i class="fa-solid fa-box-open" style="margin-right:5px;color:var(--gold)"></i>dpkg / rpm</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 11 — LINUX ADMIN II: PROCESSES & SYSTEM
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s11">
+  <div class="tag anim-1"><i class="fa-solid fa-gears" style="margin-right:6px"></i>Linux Admin II</div>
+  <div class="section-title anim-2">Processes &amp; <span>System Monitoring</span></div>
+
+  <div class="grid grid-4 anim-3" style="max-width:940px;margin-top:20px">
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">ps <span class="flag">aux</span></div>
+      <div class="term-desc">List all running processes on the system</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">top / htop</div>
+      <div class="term-desc">Live view of CPU, memory, and running processes</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">kill <span class="flag">-9</span> <span class="arg">PID</span></div>
+      <div class="term-desc">Force-terminate a stuck process</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">systemctl <span class="flag">status</span> <span class="arg">nginx</span></div>
+      <div class="term-desc">Check, start, stop or restart a system service</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">df <span class="flag">-h</span></div>
+      <div class="term-desc">Show disk space usage per filesystem</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">du <span class="flag">-sh</span> <span class="arg">*</span></div>
+      <div class="term-desc">Show the size of files and folders</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">free <span class="flag">-m</span></div>
+      <div class="term-desc">Show memory (RAM) usage in megabytes</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">uptime</div>
+      <div class="term-desc">Show how long the system has been running &amp; load</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 12 — LINUX ADMIN II: NETWORKING & LOGS
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-grid" id="s12">
+  <div class="tag anim-1"><i class="fa-solid fa-network-wired" style="margin-right:6px"></i>Linux Admin II (continued)</div>
+  <div class="section-title anim-2">Networking &amp; <span>Logs</span></div>
+
+  <div class="grid grid-3 anim-3" style="max-width:900px;margin-top:20px">
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">ip <span class="flag">a</span></div>
+      <div class="term-desc">Show network interfaces and IP addresses</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">ping <span class="arg">google.com</span></div>
+      <div class="term-desc">Test connectivity to a remote host</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">ss <span class="flag">-tulnp</span></div>
+      <div class="term-desc">Show open ports and listening services</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">ssh <span class="arg">user@host</span></div>
+      <div class="term-desc">Securely log in to a remote Linux server</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">scp <span class="arg">file user@host:/path</span></div>
+      <div class="term-desc">Copy a file securely to a remote server</div>
+    </div>
+    <div class="term-card">
+      <div class="term-dots"><div class="term-dot" style="background:#F87171"></div><div class="term-dot" style="background:#FCD34D"></div><div class="term-dot" style="background:#6EE7B7"></div></div>
+      <div class="term-cmd">journalctl <span class="flag">-f</span></div>
+      <div class="term-desc">Follow the live system log in real time</div>
+    </div>
+  </div>
+
+  <div class="pills-row anim-4">
+    <div class="pill"><i class="fa-solid fa-scroll" style="margin-right:5px;color:var(--blue)"></i>tail -f /var/log/syslog</div>
+    <div class="pill"><i class="fa-solid fa-fire" style="margin-right:5px;color:var(--red)"></i>ufw / firewalld</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 13 — FINAL
+══════════════════════════════════════════════════════ -->
+<div class="slide bg-noise" id="s13">
+  <i class="fa-solid fa-server" style="position:absolute;right:-60px;top:50%;transform:translateY(-50%);font-size:500px;color:rgba(255,255,255,.03);animation:spin-slow 50s linear infinite"></i>
+
+  <div class="trophy-char anim-1"><i class="fa-solid fa-trophy" style="color:var(--gold);font-size:60px"></i></div>
+
+  <div class="wall-text anim-2">You don't just run servers.<br><em>You command them.</em></div>
+
+  <div class="recap anim-3">
+    <div class="recap-item"><i class="fa-solid fa-server" style="margin-right:5px;color:#F87171"></i>Why Virtualization?</div>
+    <div class="recap-item"><i class="fa-solid fa-microchip" style="margin-right:5px;color:var(--gold)"></i>Hypervisors Type 1 &amp; 2</div>
+    <div class="recap-item"><i class="fa-solid fa-diagram-project" style="margin-right:5px;color:var(--purple)"></i>VM Architecture</div>
+    <div class="recap-item"><i class="fa-solid fa-terminal" style="margin-right:5px;color:var(--teal)"></i>Linux Navigation</div>
+    <div class="recap-item"><i class="fa-solid fa-user-lock" style="margin-right:5px;color:var(--blue)"></i>Permissions &amp; Users</div>
+    <div class="recap-item"><i class="fa-solid fa-gears" style="margin-right:5px;color:var(--green)"></i>Processes &amp; Services</div>
+    <div class="recap-item"><i class="fa-solid fa-network-wired" style="margin-right:5px;color:var(--gold)"></i>Networking &amp; Logs</div>
+  </div>
+
+  <div style="position:absolute;bottom:70px;width:100%;display:flex;justify-content:space-around;padding:0 40px;z-index:50">
+    <div class="c-bounce" style="animation-delay:0s">
+      <svg width="60" height="90" viewBox="0 0 60 90">
+        <rect x="18" y="56" width="10" height="30" rx="5" fill="#1E3A5F"/>
+        <rect x="32" y="56" width="10" height="30" rx="5" fill="#1E3A5F"/>
+        <rect x="12" y="30" width="36" height="32" rx="8" fill="#DC2626"/>
+        <rect x="2" y="20" width="10" height="24" rx="5" fill="#DC2626" transform="rotate(-30 2 20)"/>
+        <rect x="48" y="20" width="10" height="24" rx="5" fill="#DC2626" transform="rotate(30 48 20)"/>
+        <rect x="24" y="20" width="12" height="12" rx="4" fill="#FBBF87"/>
+        <ellipse cx="30" cy="13" rx="16" ry="16" fill="#FBBF87"/>
+        <ellipse cx="30" cy="2" rx="18" ry="10" fill="#3B1A08"/>
+        <ellipse class="e-blink" cx="22" cy="13" rx="4" ry="4" fill="#1E293B"/>
+        <ellipse class="e-blink" cx="38" cy="13" rx="4" ry="4" fill="#1E293B"/>
+        <path d="M 22 22 Q 30 28 38 22" stroke="#7C3E1B" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="c-bounce2">
+      <svg width="60" height="90" viewBox="0 0 60 90">
+        <rect x="18" y="56" width="10" height="30" rx="5" fill="#374151"/>
+        <rect x="32" y="56" width="10" height="30" rx="5" fill="#374151"/>
+        <rect x="12" y="30" width="36" height="32" rx="8" fill="#065F46"/>
+        <rect x="2" y="34" width="10" height="22" rx="5" fill="#065F46"/>
+        <g class="a-wave" style="transform-origin:48px 34px"><rect x="48" y="34" width="10" height="22" rx="5" fill="#065F46"/></g>
+        <rect x="24" y="20" width="12" height="12" rx="4" fill="#FBBF87"/>
+        <ellipse cx="30" cy="13" rx="16" ry="16" fill="#FBBF87"/>
+        <ellipse cx="30" cy="2" rx="18" ry="10" fill="#D97706"/>
+        <rect x="12" y="6" width="36" height="7" rx="2" fill="#B45309"/>
+        <ellipse class="e-blink" cx="22" cy="13" rx="4" ry="4" fill="#1E293B"/>
+        <ellipse class="e-blink" cx="38" cy="13" rx="4" ry="4" fill="#1E293B"/>
+        <path d="M 22 22 Q 30 28 38 22" stroke="#7C3E1B" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="c-float" style="animation:float 1.5s ease-in-out infinite">
+      <svg width="80" height="110" viewBox="0 0 80 110">
+        <rect x="24" y="76" width="14" height="32" rx="7" fill="#1E3A5F"/>
+        <rect x="42" y="76" width="14" height="32" rx="7" fill="#1E3A5F"/>
+        <rect x="14" y="44" width="52" height="40" rx="10" fill="#7C3AED"/>
+        <text x="40" y="72" text-anchor="middle" font-size="16" fill="rgba(255,255,255,.4)">★</text>
+        <rect x="2" y="34" width="14" height="30" rx="7" fill="#7C3AED" transform="rotate(-25 2 34)"/>
+        <rect x="64" y="34" width="14" height="30" rx="7" fill="#7C3AED" transform="rotate(25 64 34)"/>
+        <rect x="32" y="32" width="16" height="16" rx="5" fill="#FBBF87"/>
+        <ellipse cx="40" cy="20" rx="22" ry="24" fill="#FBBF87"/>
+        <ellipse cx="40" cy="2" rx="24" ry="16" fill="#1E1B18"/>
+        <rect x="16" y="2" width="48" height="12" fill="#1E1B18"/>
+        <ellipse class="e-blink" cx="30" cy="18" rx="6" ry="6" fill="#1E293B"/>
+        <ellipse class="e-blink" cx="50" cy="18" rx="6" ry="6" fill="#1E293B"/>
+        <circle cx="31.5" cy="16.5" r="2.5" fill="white"/>
+        <circle cx="51.5" cy="16.5" r="2.5" fill="white"/>
+        <path d="M 28 31 Q 40 40 52 31" stroke="#7C3E1B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="c-bounce3">
+      <svg width="60" height="90" viewBox="0 0 60 90">
+        <rect x="18" y="56" width="10" height="30" rx="5" fill="#374151"/>
+        <rect x="32" y="56" width="10" height="30" rx="5" fill="#374151"/>
+        <rect x="12" y="30" width="36" height="32" rx="8" fill="#0E7490"/>
+        <rect x="2" y="34" width="10" height="22" rx="5" fill="#0E7490"/>
+        <rect x="48" y="34" width="10" height="22" rx="5" fill="#0E7490" transform="rotate(-20 48 34)"/>
+        <rect x="24" y="20" width="12" height="12" rx="4" fill="#FBBF87"/>
+        <ellipse cx="30" cy="13" rx="16" ry="16" fill="#FBBF87"/>
+        <ellipse cx="30" cy="2" rx="18" ry="10" fill="#78350F"/>
+        <ellipse class="e-blink" cx="22" cy="13" rx="4" ry="4" fill="#1E293B"/>
+        <ellipse class="e-blink" cx="38" cy="13" rx="4" ry="4" fill="#1E293B"/>
+        <path d="M 22 22 Q 30 28 38 22" stroke="#7C3E1B" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <div style="position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:10">
+    <i class="fa-solid fa-star" style="color:#F59E0B;font-size:20px;position:absolute;left:-120px;top:0;animation:float 2s ease-in-out infinite"></i>
+    <i class="fa-solid fa-star" style="color:#10B981;font-size:14px;position:absolute;left:-80px;top:-20px;animation:float 2.3s ease-in-out infinite .3s"></i>
+    <i class="fa-solid fa-star" style="color:#EF4444;font-size:18px;position:absolute;left:-40px;top:10px;animation:float 1.8s ease-in-out infinite .6s"></i>
+    <i class="fa-solid fa-star" style="color:#8B5CF6;font-size:16px;position:absolute;left:10px;top:-15px;animation:float 2.1s ease-in-out infinite .1s"></i>
+    <i class="fa-solid fa-star" style="color:#F59E0B;font-size:12px;position:absolute;left:60px;top:5px;animation:float 2.4s ease-in-out infinite .5s"></i>
+    <i class="fa-solid fa-star" style="color:#14B8A6;font-size:22px;position:absolute;left:100px;top:-10px;animation:float 1.9s ease-in-out infinite .2s"></i>
+    <i class="fa-solid fa-star" style="color:#3B82F6;font-size:15px;position:absolute;left:140px;top:8px;animation:float 2.2s ease-in-out infinite .7s"></i>
+  </div>
+</div>
+
+</div><!-- end .slides -->
+
+<nav class="nav">
+  <button onclick="go(-1)" title="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+  <div class="dots" id="dots"></div>
+  <button onclick="go(1)" title="Next"><i class="fa-solid fa-chevron-right"></i></button>
+  <div class="slide-num" id="slideNum">1 / 14</div>
+</nav>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const dotsEl = document.getElementById('dots');
+const numEl  = document.getElementById('slideNum');
+const progEl = document.getElementById('progress');
+let cur = 0;
+const N = slides.length;
+
+slides.forEach((_,i)=>{
+  const d = document.createElement('div');
+  d.className = 'dot' + (i===0?' active':'');
+  d.onclick = ()=>goTo(i);
+  dotsEl.appendChild(d);
+});
+
+function goTo(n){
+  slides[cur].classList.remove('active');
+  slides[cur].classList.add('exit');
+  setTimeout(()=> slides[cur].classList.remove('exit'), 600);
+  cur = (n+N)%N;
+  slides[cur].classList.add('active');
+  document.querySelectorAll('.dot').forEach((d,i)=> d.classList.toggle('active', i===cur));
+  numEl.textContent = `${cur+1} / ${N}`;
+  progEl.style.width = `${((cur+1)/N)*100}%`;
+}
+
+function go(d){ goTo(cur+d); }
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' ') go(1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(-1);
+});
+
+let tx=0;
+document.addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+document.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tx;
+  if(Math.abs(dx)>50) go(dx<0?1:-1);
+},{passive:true});
+
+numEl.textContent = `1 / ${N}`;
+progEl.style.width = `${(1/N)*100}%`;
+</script>
+</body>
+</html>
